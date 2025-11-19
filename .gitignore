@@ -1,0 +1,7 @@
+venv/
+__pycache__/
+.DS_Store
+editing_suite.db
+instance/
+*.pyc
+.env

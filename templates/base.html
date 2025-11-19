@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>{% block title %}PixelForge{% endblock %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        font-family: Inter, -apple-system, system-ui, Segoe UI, Roboto,
+          Helvetica, Arial;
+        background: #000;
+        color: #fff;
+      }
+
+      .minimal-nav {
+        position: fixed;
+        inset: 0 0 auto 0;
+        height: 64px;
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        padding: 12px 40px;
+        z-index:1000;
+        background: rgba(0,0,0,.8);
+        backdrop-filter: blur(20px);
+        border-bottom: 1px solid rgba(255,255,255,.1);
+      }
+      .logo {
+        font-size: 1.5rem;
+        font-weight: 900;
+        background: linear-gradient(135deg, #00d4ff, #ff00ff);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      .nav-right { display:flex; align-items:center; gap:12px; }
+      .btn {
+        appearance:none;
+        border:1px solid rgba(255,255,255,.25);
+        padding:8px 12px;
+        border-radius:10px;
+        cursor:pointer;
+        font-weight:900;
+        text-decoration:none;
+        color:#fff;
+        transition:.15s ease;
+        background: linear-gradient(135deg, #ff0066, #00d4ff);
+      }
+      .btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 22px rgba(0,212,255,.25);
+      }
+      .btn-ghost {
+        background: transparent;
+        border-color: rgba(255,255,255,0.35);
+      }
+      .google-btn {
+        background: linear-gradient(135deg, #4285F4, #34A853, #FBBC05, #EA4335);
+        color:#0b0e14;
+        border:1px solid rgba(255,255,255,.35);
+      }
+      .google-btn:hover {
+        box-shadow: 0 10px 24px rgba(255,255,255,.18);
+      }
+      .user { display:flex; align-items:center; gap:10px; position: relative; }
+      .user-pic-btn {
+        width:32px; 
+        height:32px; 
+        border-radius:50%;
+        border:2px solid #00d4ff; 
+        object-fit:cover;
+        cursor: pointer;
+        transition: all 0.3s;
+        padding: 0;
+        background: none;
+      }
+      .user-pic-btn:hover {
+        box-shadow: 0 0 15px rgba(0, 212, 255, 0.6);
+      }
+      .user-name {
+        opacity:.9; 
+        font-weight:800;
+      }
+
+      /* Profile dropdown */
+      .user-menu {
+        position: absolute;
+        top: 50px;
+        right: 0;
+        background: rgba(0, 0, 0, 0.95);
+        border: 1px solid rgba(0, 212, 255, 0.3);
+        border-radius: 12px;
+        backdrop-filter: blur(20px);
+        min-width: 200px;
+        display: none;
+        flex-direction: column;
+        z-index: 1001;
+        box-shadow: 0 10px 40px rgba(0, 212, 255, 0.2);
+      }
+      .user-menu.active {
+        display: flex;
+      }
+      .user-menu a, .user-menu button {
+        padding: 12px 16px;
+        color: #fff;
+        text-decoration: none;
+        border: none;
+        background: none;
+        cursor: pointer;
+        text-align: left;
+        font-weight: 600;
+        transition: all 0.2s;
+        border-bottom: 1px solid rgba(0, 212, 255, 0.1);
+        font-size: 0.9rem;
+      }
+      .user-menu a:hover, .user-menu button:hover {
+        background: rgba(0, 212, 255, 0.1);
+        color: #00d4ff;
+      }
+      .user-menu a:last-child, .user-menu button:last-child {
+        border-bottom: none;
+      }
+
+      .page-offset { height:64px; }
+
+      footer {
+        background: rgba(0,0,0,0.85);
+        border-top: 1px solid rgba(255,255,255,0.1);
+        padding: 16px 40px;
+        color: #aaa;
+        text-align: center;
+        font-size: 0.9rem;
+        margin-top: 40px;
+      }
+      footer nav { margin-bottom: 8px; }
+      footer nav a {
+        color: #ddd;
+        margin: 0 12px;
+        font-weight: 700;
+        font-size: 0.9rem;
+        text-decoration: none;
+        text-transform: uppercase;
+        transition: color 0.2s ease;
+      }
+      footer nav a:hover { color: #00d4ff; }
+
+      {% block content_style %}{% endblock %}
+    </style>
+  </head>
+  <body>
+    <div class="minimal-nav">
+      <div class="logo">✨ PixelForge</div>
+
+      <div class="nav-right">
+        {% if current_user.is_authenticated and request.endpoint != 'dashboard' %}
+          <!-- Separate Dashboard button in header on all logged-in pages EXCEPT dashboard -->
+          <a class="btn btn-ghost" href="{{ url_for('dashboard') }}">Dashboard</a>
+        {% endif %}
+
+        {% block nav_extra %}{% endblock %}
+
+        {% if current_user.is_authenticated %}
+          <div class="user">
+            {% if current_user.profile_pic %}
+              <button class="user-pic-btn" id="userPicBtn" onclick="toggleUserMenu()" style="background-image: url('{{ current_user.profile_pic }}'); background-size: cover; background-position: center;"></button>
+            {% else %}
+              <button class="user-pic-btn" id="userPicBtn" onclick="toggleUserMenu()" style="background: linear-gradient(135deg, #00d4ff, #ff00ff); display: flex; align-items: center; justify-content: center; font-size: 1rem;">👤</button>
+            {% endif %}
+            <span class="user-name">{{ current_user.first_name or current_user.name }}</span>
+            
+            <!-- Profile Dropdown Menu (no dashboard item) -->
+            <div class="user-menu" id="userMenu">
+              <a href="{{ url_for('profile') }}">👤 My Profile</a>
+              <a href="{{ url_for('history') }}">📜 History</a>
+              <button onclick="window.location.href='{{ url_for('logout') }}'">🚪 Logout</button>
+            </div>
+          </div>
+        {% else %}
+          <a class="btn google-btn" href="{{ url_for('login') }}">Login with Google</a>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="page-offset"></div>
+
+    {% block content %}{% endblock %}
+
+    {% if request.endpoint == 'index' %}
+    <footer>
+      <nav>
+        <a href="{{ url_for('image_upscaler') }}">Image Upscaler</a>
+        <a href="{{ url_for('video_upscaler') }}">Video Upscaler</a>
+        <a href="{{ url_for('frame_interpolator') }}">Frame Interpolator</a>
+        <a href="{{ url_for('dashboard') }}">Dashboard</a>
+        {% if current_user.is_authenticated %}
+          <a href="{{ url_for('profile') }}">Profile</a>
+          <a href="{{ url_for('history') }}">History</a>
+          <a href="{{ url_for('logout') }}">Logout</a>
+        {% endif %}
+      </nav>
+      <p>&copy; 2025 PixelForge — Powered by AI Upscaling Technology</p>
+    </footer>
+    {% endif %}
+
+    <script>
+      function toggleUserMenu() {
+        const menu = document.getElementById('userMenu');
+        menu.classList.toggle('active');
+      }
+      
+      // Close menu when clicking outside
+      document.addEventListener('click', (e) => {
+        const menu = document.getElementById('userMenu');
+        const btn = document.getElementById('userPicBtn');
+        if (!menu || !btn) return;
+        if (!menu.contains(e.target) && e.target !== btn) {
+          menu.classList.remove('active');
+        }
+      });
+    </script>
+  </body>
+</html>

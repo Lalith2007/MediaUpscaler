@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}PixelForge – AI Media Enhancement{% endblock %}
+
+{% block content_style %}
+  /* Extra styles only for the homepage */
+  .hero-wrap {
+    position: relative;
+    min-height: calc(100vh - 64px - 80px); /* full height minus nav+footer */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  #bgCanvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+  }
+  .hero-inner {
+    text-align: center;
+    max-width: 900px;
+    padding: 0 24px;
+  }
+  .hero-title {
+    font-size: 3.8rem;
+    font-weight: 900;
+    margin-bottom: 12px;
+    background: linear-gradient(135deg,#00f5ff,#00ff88);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .hero-tagline {
+    font-size: 1.05rem;
+    color: rgba(255,255,255,0.85);
+    margin-bottom: 32px;
+  }
+  .get-started-block {
+    margin-top: 8px;
+  }
+  .get-started-block h2 {
+    font-size: 1.6rem;
+    font-weight: 800;
+    margin-bottom: 8px;
+  }
+  .get-started-block p {
+    font-size: 0.98rem;
+    color: rgba(255,255,255,0.8);
+    margin-bottom: 18px;
+  }
+  .mode-buttons {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .mode-pill {
+    padding: 8px 16px;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,0.25);
+    background: rgba(0,0,0,0.4);
+    color: #fff;
+    font-size: 0.9rem;
+    font-weight: 700;
+    text-decoration: none;
+    backdrop-filter: blur(10px);
+    transition: 0.2s ease;
+  }
+  .mode-pill:hover {
+    border-color: #00f5ff;
+    box-shadow: 0 0 18px rgba(0,245,255,0.45);
+    transform: translateY(-1px);
+  }
+{% endblock %}
+
+{% block content %}
+<div class="hero-wrap">
+  <canvas id="bgCanvas"></canvas>
+
+  <div class="hero-inner">
+    <!-- TITLE ON TOP -->
+    <h1 class="hero-title">AI Media Enhancement</h1>
+
+    <!-- Tagline below title -->
+    <p class="hero-tagline">
+      Transform pixels into perfection with intelligent upscaling and frame enhancement.
+    </p>
+
+    <!-- GET STARTED SECTION BELOW TITLE -->
+    <div class="get-started-block">
+      <h2>Get Started</h2>
+      <p>
+        Explore the AI tools PixelForge offers to enhance images, upscale videos,
+        and interpolate frames for ultra-smooth effects.
+      </p>
+      <div class="mode-buttons">
+        <a href="{{ url_for('image_upscaler') }}" class="mode-pill">Image Upscaler</a>
+        <a href="{{ url_for('video_upscaler') }}" class="mode-pill">Video Upscaler</a>
+        <a href="{{ url_for('frame_interpolator') }}" class="mode-pill">Frame Interpolator</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // very lightweight 3D-ish background with GSAP; non‑destructive to layout
+  const canvas = document.getElementById('bgCanvas');
+  const ctx = canvas.getContext('2d');
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  const squares = [];
+  for (let i = 0; i < 120; i++) {
+    squares.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      s: 4 + Math.random() * 6,
+      z: 0.4 + Math.random() * 0.6,
+      speed: 0.4 + Math.random() * 0.8
+    });
+  }
+
+  function draw() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle = 'rgba(0,0,20,0.7)';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    squares.forEach(q => {
+      q.y += q.speed;
+      if (q.y - q.s > canvas.height) {
+        q.y = -q.s;
+        q.x = Math.random() * canvas.width;
+      }
+      const alpha = 0.4 + q.z * 0.6;
+      ctx.fillStyle = `rgba(${0},${180+50*q.z|0},${255},${alpha})`;
+      ctx.fillRect(q.x, q.y, q.s, q.s);
+    });
+
+    requestAnimationFrame(draw);
+  }
+  draw();
+</script>
+{% endblock %}

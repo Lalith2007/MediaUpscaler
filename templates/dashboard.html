@@ -1,0 +1,606 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - PixelForge{% endblock %}
+
+{% block content_style %}
+  .dashboard-wrap {
+    position: relative;
+    min-height: calc(100vh - 64px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    padding: 40px 20px;
+  }
+
+  #nnCanvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  .dashboard-inner {
+    text-align: center;
+    max-width: 1000px;
+    z-index: 2;
+    width: 100%;
+    opacity: 0;
+  }
+
+  .dashboard-title {
+    font-size: 3.2rem;
+    font-weight: 900;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, #00d4ff, #ff00ff, #00ff88);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    transform: translateY(50px);
+    opacity: 0;
+  }
+
+  .dashboard-subtitle {
+    font-size: 1rem;
+    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: 40px;
+    transform: translateY(30px);
+    opacity: 0;
+  }
+
+  .quick-access {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 50px;
+  }
+
+  .quick-btn {
+    padding: 14px 20px;
+    background: linear-gradient(135deg, #00d4ff, #00ff88);
+    color: #000;
+    border: none;
+    border-radius: 10px;
+    font-weight: 900;
+    text-decoration: none;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: 0.8rem;
+    transform: scale(0.8);
+    opacity: 0;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .quick-btn::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.5);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+  }
+
+  .quick-btn:hover::before {
+    width: 300px;
+    height: 300px;
+  }
+
+  .quick-btn:hover {
+    transform: translateY(-5px) scale(1.05);
+    box-shadow: 0 15px 40px rgba(0, 212, 255, 0.6);
+  }
+
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    margin-bottom: 40px;
+  }
+
+  .stat-box {
+    background: rgba(0, 212, 255, 0.08);
+    border: 1px solid rgba(0, 212, 255, 0.25);
+    border-radius: 12px;
+    padding: 20px;
+    backdrop-filter: blur(10px);
+    transform: translateY(50px) rotateX(20deg);
+    opacity: 0;
+    transition: all 0.3s;
+  }
+
+  .stat-box:hover {
+    transform: translateY(-10px) scale(1.05);
+    border-color: #00d4ff;
+    box-shadow: 0 20px 50px rgba(0, 212, 255, 0.4);
+  }
+
+  .stat-number {
+    font-size: 2rem;
+    font-weight: 900;
+    color: #00d4ff;
+    text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+  }
+
+  .stat-label {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.6);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 6px;
+  }
+
+  .recent-section {
+    background: rgba(0, 212, 255, 0.06);
+    border: 1px solid rgba(0, 212, 255, 0.2);
+    border-radius: 16px;
+    padding: 30px;
+    backdrop-filter: blur(15px);
+    text-align: left;
+    transform: translateY(50px);
+    opacity: 0;
+  }
+
+  .section-header {
+    font-size: 1.3rem;
+    font-weight: 900;
+    color: #00d4ff;
+    margin-bottom: 20px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .jobs-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .job-row {
+    background: rgba(0, 0, 0, 0.3);
+    border-left: 3px solid #00d4ff;
+    padding: 14px 16px;
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.2s;
+    transform: translateX(-20px);
+    opacity: 0;
+  }
+
+  .job-row:hover {
+    background: rgba(0, 212, 255, 0.12);
+    transform: translateX(8px);
+    box-shadow: 0 5px 20px rgba(0, 212, 255, 0.3);
+  }
+
+  .job-col {
+    flex: 1;
+  }
+
+  .job-title {
+    font-weight: 700;
+    color: #fff;
+    font-size: 0.95rem;
+    margin-bottom: 4px;
+  }
+
+  .job-details {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.6);
+  }
+
+  .job-action {
+    padding: 6px 14px;
+    background: linear-gradient(135deg, #ff006e, #ff4d8f);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
+  }
+
+  .job-action:hover {
+    transform: scale(1.1);
+    box-shadow: 0 8px 25px rgba(255, 0, 110, 0.5);
+  }
+
+  .empty-msg {
+    text-align: center;
+    padding: 30px;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.95rem;
+  }
+
+  @media (max-width: 768px) {
+    .dashboard-title { font-size: 2rem; }
+    .stats-row { grid-template-columns: 1fr; }
+    .quick-access { grid-template-columns: repeat(2, 1fr); }
+  }
+{% endblock %}
+
+{% block content %}
+<canvas id="nnCanvas"></canvas>
+
+<div class="dashboard-wrap">
+  <div class="dashboard-inner">
+    <h1 class="dashboard-title">📊 Dashboard</h1>
+    <p class="dashboard-subtitle">Welcome back, {{ current_user.first_name or current_user.name }}! 👋</p>
+
+    <!-- Quick Access Buttons -->
+    <div class="quick-access">
+      <a href="{{ url_for('image_upscaler') }}" class="quick-btn">🖼️ Image</a>
+      <a href="{{ url_for('video_upscaler') }}" class="quick-btn">🎬 Video</a>
+      <a href="{{ url_for('frame_interpolator') }}" class="quick-btn">⚡ Frame</a>
+      <a href="{{ url_for('history') }}" class="quick-btn">📜 History</a>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-row">
+      <div class="stat-box">
+        <div class="stat-number" id="totalJobs">0</div>
+        <div class="stat-label">Total Jobs</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-number" id="completedJobs">0</div>
+        <div class="stat-label">Completed</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-number" id="failedJobs">0</div>
+        <div class="stat-label">Failed</div>
+      </div>
+    </div>
+
+    <!-- Recent Jobs -->
+    <div class="recent-section">
+      <div class="section-header">🕐 Recent Jobs</div>
+      <div class="jobs-list" id="jobsList">
+        <div class="empty-msg">No jobs yet. Start uploading!</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // === ULTRA HIGH-LEVEL 3D SCENE ===
+  const canvas = document.getElementById('nnCanvas');
+  const renderer = new THREE.WebGLRenderer({
+    canvas,
+    alpha: true,
+    antialias: true,
+    powerPreference: 'high-performance'
+  });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Optimize for M2
+  renderer.setClearColor(0x000000, 0);
+
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x000814, 0.015);
+
+  const camera = new THREE.PerspectiveCamera(
+    60,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    200
+  );
+  camera.position.set(0, 5, 25);
+
+  // === LIGHTS ===
+  const ambientLight = new THREE.AmbientLight(0x0044ff, 0.3);
+  scene.add(ambientLight);
+
+  const pointLight1 = new THREE.PointLight(0x00d4ff, 2, 50);
+  pointLight1.position.set(10, 10, 10);
+  scene.add(pointLight1);
+
+  const pointLight2 = new THREE.PointLight(0xff00ff, 1.5, 50);
+  pointLight2.position.set(-10, -10, 10);
+  scene.add(pointLight2);
+
+  // === NEURAL NETWORK NODES (Icosahedrons) ===
+  const nodeCount = 100;
+  const nodes = [];
+  const nodeGeometry = new THREE.IcosahedronGeometry(0.15, 0);
+  const edgeMaterial = new THREE.LineBasicMaterial({
+    color: 0x0088ff,
+    transparent: true,
+    opacity: 0.3
+  });
+
+  const nodeGroup = new THREE.Group();
+  const edgesGroup = new THREE.Group();
+
+  for (let i = 0; i < nodeCount; i++) {
+    const phi = Math.acos(2 * Math.random() - 1);
+    const theta = 2 * Math.PI * Math.random();
+    const radius = 12 + Math.random() * 8;
+
+    const x = radius * Math.sin(phi) * Math.cos(theta);
+    const y = radius * Math.sin(phi) * Math.sin(theta);
+    const z = radius * Math.cos(phi);
+
+    const hue = 0.5 + Math.random() * 0.15;
+    const nodeMaterial = new THREE.MeshPhongMaterial({
+      color: new THREE.Color().setHSL(hue, 1, 0.6),
+      emissive: new THREE.Color().setHSL(hue, 1, 0.3),
+      shininess: 100,
+      transparent: true,
+      opacity: 0.9
+    });
+
+    const node = new THREE.Mesh(nodeGeometry, nodeMaterial);
+    node.position.set(x, y, z);
+    node.userData.velocity = new THREE.Vector3(
+      (Math.random() - 0.5) * 0.02,
+      (Math.random() - 0.5) * 0.02,
+      (Math.random() - 0.5) * 0.02
+    );
+
+    nodeGroup.add(node);
+    nodes.push(node);
+  }
+
+  // Create edges between nearby nodes
+  for (let i = 0; i < nodeCount; i++) {
+    for (let j = i + 1; j < nodeCount; j++) {
+      const dist = nodes[i].position.distanceTo(nodes[j].position);
+      if (dist < 6 && Math.random() < 0.3) {
+        const geometry = new THREE.BufferGeometry().setFromPoints([
+          nodes[i].position,
+          nodes[j].position
+        ]);
+        const line = new THREE.Line(geometry, edgeMaterial);
+        edgesGroup.add(line);
+      }
+    }
+  }
+
+  scene.add(nodeGroup);
+  scene.add(edgesGroup);
+
+  // === PARTICLE FIELD ===
+  const particleCount = 2000;
+  const particleGeometry = new THREE.BufferGeometry();
+  const particlePositions = new Float32Array(particleCount * 3);
+  const particleColors = new Float32Array(particleCount * 3);
+
+  for (let i = 0; i < particleCount; i++) {
+    particlePositions[i * 3] = (Math.random() - 0.5) * 100;
+    particlePositions[i * 3 + 1] = (Math.random() - 0.5) * 100;
+    particlePositions[i * 3 + 2] = (Math.random() - 0.5) * 100;
+
+    const color = new THREE.Color().setHSL(0.5 + Math.random() * 0.2, 1, 0.5);
+    particleColors[i * 3] = color.r;
+    particleColors[i * 3 + 1] = color.g;
+    particleColors[i * 3 + 2] = color.b;
+  }
+
+  particleGeometry.setAttribute('position', new THREE.BufferAttribute(particlePositions, 3));
+  particleGeometry.setAttribute('color', new THREE.BufferAttribute(particleColors, 3));
+
+  const particleMaterial = new THREE.PointsMaterial({
+    size: 0.15,
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.6,
+    blending: THREE.AdditiveBlending
+  });
+
+  const particleSystem = new THREE.Points(particleGeometry, particleMaterial);
+  scene.add(particleSystem);
+
+  // === ROTATING TORUS KNOT ===
+  const torusGeometry = new THREE.TorusKnotGeometry(3, 1, 100, 16);
+  const torusMaterial = new THREE.MeshPhongMaterial({
+    color: 0x00d4ff,
+    emissive: 0x004466,
+    wireframe: true,
+    transparent: true,
+    opacity: 0.4
+  });
+  const torus = new THREE.Mesh(torusGeometry, torusMaterial);
+  torus.position.z = -10;
+  scene.add(torus);
+
+  // === MOUSE INTERACTION ===
+  const mouse = { x: 0, y: 0 };
+  window.addEventListener('mousemove', (e) => {
+    mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+    mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  });
+
+  // === RESIZE HANDLER ===
+  function resizeRenderer() {
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    renderer.setSize(width, height);
+    camera.aspect = width / height;
+    camera.updateProjectionMatrix();
+  }
+  resizeRenderer();
+  window.addEventListener('resize', resizeRenderer);
+
+  // === ANIMATION LOOP ===
+  let time = 0;
+  function animate() {
+    requestAnimationFrame(animate);
+    time += 0.01;
+
+    // Rotate neural network
+    nodeGroup.rotation.y += 0.002;
+    nodeGroup.rotation.x = Math.sin(time * 0.3) * 0.1;
+    edgesGroup.rotation.y += 0.002;
+    edgesGroup.rotation.x = Math.sin(time * 0.3) * 0.1;
+
+    // Animate individual nodes
+    nodes.forEach((node, i) => {
+      node.position.add(node.userData.velocity);
+      const dist = node.position.length();
+      if (dist > 20 || dist < 8) {
+        node.userData.velocity.multiplyScalar(-1);
+      }
+      node.rotation.x += 0.01;
+      node.rotation.y += 0.01;
+
+      // Pulsing glow
+      const pulse = Math.sin(time * 2 + i * 0.1) * 0.5 + 0.5;
+      node.material.opacity = 0.7 + pulse * 0.3;
+    });
+
+    // Rotate particle field
+    particleSystem.rotation.y += 0.0005;
+    particleSystem.rotation.x = Math.sin(time * 0.2) * 0.05;
+
+    // Animate torus knot
+    torus.rotation.x += 0.01;
+    torus.rotation.y += 0.02;
+    torus.position.z = -10 + Math.sin(time * 0.5) * 2;
+
+    // Camera follows mouse smoothly
+    camera.position.x += (mouse.x * 3 - camera.position.x) * 0.05;
+    camera.position.y += (mouse.y * 3 - camera.position.y) * 0.05;
+    camera.lookAt(0, 0, 0);
+
+    // Animate lights
+    pointLight1.position.x = Math.sin(time) * 15;
+    pointLight1.position.z = Math.cos(time) * 15;
+    pointLight2.position.x = Math.cos(time * 0.7) * 12;
+    pointLight2.position.y = Math.sin(time * 0.7) * 12;
+
+    renderer.render(scene, camera);
+  }
+  animate();
+
+  // === GSAP ANIMATIONS ===
+  gsap.to('.dashboard-inner', {
+    opacity: 1,
+    duration: 1,
+    ease: 'power2.out'
+  });
+
+  gsap.to('.dashboard-title', {
+    y: 0,
+    opacity: 1,
+    duration: 1.2,
+    ease: 'elastic.out(1, 0.5)',
+    delay: 0.3
+  });
+
+  gsap.to('.dashboard-subtitle', {
+    y: 0,
+    opacity: 1,
+    duration: 0.8,
+    ease: 'power2.out',
+    delay: 0.6
+  });
+
+  gsap.to('.quick-btn', {
+    scale: 1,
+    opacity: 1,
+    duration: 0.6,
+    stagger: 0.1,
+    ease: 'back.out(1.7)',
+    delay: 0.8
+  });
+
+  gsap.to('.stat-box', {
+    y: 0,
+    rotateX: 0,
+    opacity: 1,
+    duration: 0.8,
+    stagger: 0.15,
+    ease: 'power3.out',
+    delay: 1.2
+  });
+
+  gsap.to('.recent-section', {
+    y: 0,
+    opacity: 1,
+    duration: 0.8,
+    ease: 'power2.out',
+    delay: 1.5
+  });
+
+  // === DASHBOARD DATA ===
+  async function loadDashboard() {
+    try {
+      const statsRes = await fetch('/api/user-stats');
+      const stats = await statsRes.json();
+      
+      // Animate numbers
+      gsap.to('#totalJobs', {
+        textContent: stats.total || 0,
+        duration: 2,
+        ease: 'power1.out',
+        snap: { textContent: 1 }
+      });
+      gsap.to('#completedJobs', {
+        textContent: stats.completed || 0,
+        duration: 2,
+        ease: 'power1.out',
+        snap: { textContent: 1 }
+      });
+      gsap.to('#failedJobs', {
+        textContent: stats.failed || 0,
+        duration: 2,
+        ease: 'power1.out',
+        snap: { textContent: 1 }
+      });
+
+      const jobsRes = await fetch('/api/user-jobs');
+      const jobs = await jobsRes.json();
+      const recent = jobs.slice(0, 5);
+
+      const jobsList = document.getElementById('jobsList');
+      if (recent.length === 0) {
+        jobsList.innerHTML = '<div class="empty-msg">No jobs yet. Start uploading!</div>';
+      } else {
+        jobsList.innerHTML = recent.map(job => `
+          <div class="job-row">
+            <div class="job-col">
+              <div class="job-title">${job.input_file.split('/').pop()}</div>
+              <div class="job-details">
+                ${job.job_type === 'image' ? '🖼️' : '🎬'} ${job.job_type} • 
+                ${(job.settings && job.settings.scale) || 'N/A'}x • 
+                ${job.status} • 
+                ${new Date(job.created_at).toLocaleDateString()}
+              </div>
+            </div>
+            ${job.status === 'completed'
+              ? `<a href="/api/download/${job.job_id}" class="job-action">⬇️ Download</a>`
+              : `<span style="color: #00d4ff; font-size: 0.8rem; text-transform: uppercase;">${job.progress}%</span>`}
+          </div>
+        `).join('');
+
+        // Animate job rows
+        gsap.to('.job-row', {
+          x: 0,
+          opacity: 1,
+          duration: 0.5,
+          stagger: 0.1,
+          ease: 'power2.out',
+          delay: 0.2
+        });
+      }
+    } catch (e) {
+      console.error('Failed to load dashboard:', e);
+    }
+  }
+
+  loadDashboard();
+  setInterval(loadDashboard, 5000);
+</script>
+{% endblock %}

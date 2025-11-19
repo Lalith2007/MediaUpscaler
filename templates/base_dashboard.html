@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}PixelForge{% endblock %}</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', -apple-system, sans-serif; background: #000; color: #fff; overflow-x: hidden; }
+        nav { background: rgba(0, 0, 0, 0.9); backdrop-filter: blur(20px); padding: 20px 40px; position: sticky; top: 0; z-index: 1000; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+        nav .container { max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 1.5rem; font-weight: 900; background: linear-gradient(135deg, #00d4ff, #ff00ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .nav-links { display: flex; gap: 30px; list-style: none; }
+        .nav-links a { color: rgba(255, 255, 255, 0.8); text-decoration: none; font-weight: 600; transition: color 0.3s; }
+        .nav-links a:hover { color: #00d4ff; }
+        .nav-user { display: flex; align-items: center; gap: 15px; }
+        .user-pic { width: 35px; height: 35px; border-radius: 50%; border: 2px solid #00d4ff; }
+        .logout-btn { background: linear-gradient(135deg, #ff00ff, #00d4ff); color: #fff; padding: 8px 20px; border: none; border-radius: 20px; font-weight: 600; text-decoration: none; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="container">
+            <div class="logo">✨ PixelForge</div>
+            <ul class="nav-links">
+                <li><a href="/dashboard">Dashboard</a></li>
+                <li><a href="/image-upscaler">Image</a></li>
+                <li><a href="/video-upscaler">Video</a></li>
+                <li><a href="/frame-interpolator">FPS</a></li>
+            </ul>
+            <div class="nav-user">
+                {% if current_user.is_authenticated %}
+                <img src="{{ current_user.profile_pic }}" class="user-pic">
+                <span>{{ current_user.name }}</span>
+                <a href="/logout" class="logout-btn">Logout</a>
+                {% else %}
+                <a href="/login" class="logout-btn">Login</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+    {% block content %}{% endblock %}
+</body>
+</html>

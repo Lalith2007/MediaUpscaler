@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+{% block title %}Image Upscaler - PixelForge{% endblock %}
+{% block content %}
+<canvas id="bgRed" style="position: fixed; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none;"></canvas>
+
+<style>
+  :root{ --bg1:#0c0608; --bg2:#14070b; --panel:rgba(20,8,10,.78); --red:#ff3b3b; --rose:#ff5573; --amber:#ffb36b; --glow:#ff4d4d; --text:#ffeef0; --stroke:rgba(255,77,77,.4); }
+  body{ background: radial-gradient(ellipse at top, var(--bg2) 0%, var(--bg1) 100%); }
+  .container{ position:relative; z-index:2; max-width:1000px; margin:86px auto 0; padding:40px 40px 86px; }
+  .header{ text-align:center; margin-bottom:26px; }
+  h1{ font-size:2.9rem; font-weight:900; margin:0 0 8px 0; background:linear-gradient(135deg,var(--red),var(--rose),var(--amber)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; text-shadow:0 0 26px rgba(255,85,115,.55),0 2px 10px rgba(0,0,0,.85); }
+  .subtitle{ color:var(--text); opacity:.95; text-shadow:0 2px 12px rgba(0,0,0,.9); }
+  .upload-zone{ background:var(--panel); border:2px dashed var(--stroke); border-radius:18px; padding:60px 40px; text-align:center; backdrop-filter:blur(14px); transition:transform .2s, box-shadow .2s, border-color .2s; }
+  .upload-zone:hover{ transform:translateY(-4px); border-color:var(--glow); box-shadow:0 16px 44px rgba(255,77,77,.28); }
+  .upload-icon{ font-size:3.3rem; margin-bottom:16px; filter:drop-shadow(0 0 18px var(--glow)); }
+  .upload-zone h2,.upload-zone p{ color:#fff; text-shadow:0 2px 10px rgba(0,0,0,.85); }
+  input[type=file]{ display:none; }
+  .controls{ display:grid; grid-template-columns:1fr 1fr; gap:18px; margin:24px 0; }
+  .control-group{ background:rgba(24,10,12,.6); border:1px solid rgba(255,85,115,.35); border-radius:14px; padding:16px; backdrop-filter:blur(10px); }
+  .control-group label{ color:var(--rose); font-weight:800; margin-bottom:8px; display:block; }
+  select{ width:100%; padding:12px; border-radius:10px; border:1px solid rgba(255,85,115,.55); color:#ffeef0; background:rgba(6,2,3,.6); }
+  .upscale-btn{ width:100%; padding:16px; border-radius:14px; border:1px solid var(--glow); color:#1a0709; font-weight:900; background:linear-gradient(135deg,var(--glow),#ff7a7a); box-shadow:0 12px 28px rgba(255,77,77,.28); transition:transform .15s, box-shadow .15s; }
+  .upscale-btn:hover{ transform:translateY(-2px); box-shadow:0 18px 44px rgba(255,77,77,.36); }
+  .progress-wrap{ margin-top:18px; }
+  .progress-bar{ display:none; width:100%; height:10px; background:#220b0f; border-radius:10px; overflow:hidden; }
+  .progress-fill{ height:100%; width:0%; background:linear-gradient(90deg,var(--rose),var(--glow),var(--amber)); transition:width .25s; }
+  .file-info{ display:none; margin-top:14px; padding:12px; border-radius:10px; background:rgba(255,77,77,.12); border-left:3px solid var(--glow); color:var(--text); }
+  .result-actions{ display:none; margin-top:16px; text-align:center; }
+  .download-btn{ display:inline-block; padding:12px 16px; border-radius:12px; border:1px solid var(--glow); color:#1a0709; font-weight:900; text-decoration:none; background:linear-gradient(135deg,var(--glow),#ff9a7a); box-shadow:0 12px 26px rgba(255,77,77,.32); transition:transform .15s, box-shadow .15s; }
+  .download-btn:hover{ transform:translateY(-2px); box-shadow:0 16px 38px rgba(255,77,77,.38); }
+  @media (max-width:720px){ .controls{ grid-template-columns:1fr; } }
+</style>
+
+<div class="container">
+  <div class="header">
+    <h1>🖼️ Image Upscaler</h1>
+    <p class="subtitle">Transform to 8K • AI-powered enhancement</p>
+  </div>
+
+  <div class="upload-zone" id="uploadZone">
+    <div class="upload-icon">🪄</div>
+    <h2>Drop your image here</h2>
+    <p>or click to select • Up to 8K</p>
+    <input type="file" id="imageInput" accept="image/*">
+  </div>
+
+  <div class="file-info" id="fileInfo"></div>
+
+  <div class="controls">
+    <div class="control-group">
+      <label>Scale Factor</label>
+      <select id="scaleSelect"><option value="2">2x</option><option value="4" selected>4x</option><option value="8">8x</option></select>
+    </div>
+    <div class="control-group">
+      <label>Enhancement Preset</label>
+      <select id="presetSelect"><option value="balanced">Balanced</option><option value="vibrant" selected>Vibrant</option><option value="crisp">Crisp</option><option value="cinematic">Cinematic</option></select>
+    </div>
+  </div>
+
+  <button class="upscale-btn" id="upscaleBtn">🚀 Start Upscaling</button>
+
+  <div class="progress-wrap">
+    <div class="progress-bar" id="progressBar"><div class="progress-fill" id="progressFill"></div></div>
+    <p id="progressText" style="text-align:center; color: var(--text); margin:10px 0 0;"></p>
+    <div class="result-actions" id="resultActions">
+      <a id="downloadLink" class="download-btn" href="#" download>⬇️ Download result</a>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Background: bright rotating “window” frames + red/amber particles
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(72, innerWidth/innerHeight, .1, 1000);
+  const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('bgRed'), alpha:true, antialias:true });
+  renderer.setSize(innerWidth, innerHeight);
+  camera.position.set(0, 10, 54);
+
+  function makeWindow(w, h, z, colorHex, opacity=.62, tilt=0, skew=0){
+    const plane = new THREE.PlaneGeometry(w, h);
+    const edges = new THREE.EdgesGeometry(plane);
+    const base = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: colorHex, transparent:true, opacity }));
+    base.position.z = z; base.rotation.y = tilt; base.rotation.x = skew;
+    const glowEdges = new THREE.EdgesGeometry(new THREE.PlaneGeometry(w*1.03, h*1.03));
+    const glow = new THREE.LineSegments(glowEdges, new THREE.LineBasicMaterial({ color: colorHex, transparent:true, opacity:.42, blending:THREE.AdditiveBlending }));
+    glow.position.z=z+.01; glow.rotation.y=tilt; glow.rotation.x=skew;
+    const group=new THREE.Group(); group.add(base); group.add(glow); return group;
+  }
+
+  const windowsGroup = new THREE.Group();
+  const ringRadius = 21, frames = 10;
+  for(let i=0;i<frames;i++){
+    const a=(i/frames)*Math.PI*2;
+    const win = makeWindow(32, 17, -8, 0xff5a5a, .62, 0.25, 0.06);
+    win.position.x = Math.cos(a)*ringRadius;
+    win.position.z = Math.sin(a)*ringRadius - 8;
+    win.rotation.y = -a + 0.25;
+    windowsGroup.add(win);
+  }
+  scene.add(windowsGroup);
+
+  const frontA = makeWindow(36, 19, -10, 0xff7a7a, .66, 0.18, 0.04);
+  const frontB = makeWindow(30, 15, -12, 0xffb36b, .56, 0.28, 0.04);
+  scene.add(frontA, frontB);
+
+  function pulse(obj, base=1, amp=.05, speed=.9, phase=0){
+    const t = performance.now()/1000*speed + phase;
+    const s = base + Math.sin(t)*amp;
+    obj.scale.set(s, s, 1);
+  }
+
+  const pc=1650, g=new THREE.BufferGeometry();
+  const pos=new Float32Array(pc*3), col=new Float32Array(pc*3);
+  for(let i=0;i<pc;i++){
+    const k=i*3;
+    pos[k]=(Math.random()-.5)*150; pos[k+1]=(Math.random()-.5)*90; pos[k+2]=(Math.random()-.5)*150;
+    if(Math.random()<.65){ col[k]=1; col[k+1]=0.35; col[k+2]=0.35; } else { col[k]=1; col[k+1]=0.73; col[k+2]=0.42; }
+  }
+  g.setAttribute('position', new THREE.BufferAttribute(pos,3));
+  g.setAttribute('color', new THREE.BufferAttribute(col,3));
+  const pm=new THREE.PointsMaterial({ size:.85, vertexColors:true, transparent:true, opacity:.26, blending:THREE.AdditiveBlending });
+  const particles=new THREE.Points(g, pm); scene.add(particles);
+
+  let mx=0,my=0; addEventListener('mousemove', e=>{ mx=(e.clientX/innerWidth-.5)*2; my=(e.clientY/innerHeight-.5)*2; });
+  const clock=new THREE.Clock();
+  function tick(){
+    requestAnimationFrame(tick);
+    const t=clock.getElapsedTime();
+    windowsGroup.rotation.y = t*0.24;
+    pulse(frontA,1,.055,.9,0.0);
+    pulse(frontB,1,.045,.8,1.2);
+    particles.rotation.y = t*0.055;
+    particles.rotation.x = Math.sin(t*0.14)*0.05;
+    camera.position.x += (mx*8 - camera.position.x)*.06;
+    camera.position.y += (-my*6 + 10 - camera.position.y)*.06;
+    camera.lookAt(0,0,0);
+    renderer.render(scene, camera);
+  }
+  tick();
+  addEventListener('resize', ()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+
+  // Upload / progress / guaranteed Download button under the bar
+  const socket = io('http://localhost:5001');
+  let selectedFile = null, currentJobId = null, pollTimer = null;
+  const el = (id)=>document.getElementById(id);
+  const uploadZone = el('uploadZone'), fileInput = el('imageInput');
+  const fileInfo = el('fileInfo'), pbar = el('progressBar'), pfill = el('progressFill'), ptext = el('progressText');
+  const actions = el('resultActions'), dl = el('downloadLink');
+
+  uploadZone.onclick = ()=> fileInput.click();
+  fileInput.onchange = (e)=>{
+    selectedFile = e.target.files[0];
+    if(!selectedFile) return;
+    fileInfo.textContent = `📁 ${selectedFile.name} — ${(selectedFile.size/1024/1024).toFixed(2)} MB`;
+    fileInfo.style.display = 'block';
+  };
+
+  function showActions(url){
+    if(!url) return; dl.href = url; actions.style.display = 'inline-block';
+    gsap.fromTo(actions, { opacity:0, y:10 }, { opacity:1, y:0, duration:.5, ease:'power3.out' });
+  }
+  function statusUrl(id){ return `/api/job/${id}`; }
+  function downloadUrl(id){ return `/api/download/${id}`; }
+
+  function stopPolling(){ if(pollTimer){ clearInterval(pollTimer); pollTimer=null; } }
+  function startPolling(){
+    stopPolling();
+    pollTimer = setInterval(async ()=>{
+      if(!currentJobId) return;
+      try{
+        const r = await fetch(statusUrl(currentJobId), { cache:'no-store' });
+        if(!r.ok) return;
+        const j = await r.json();
+        if(String(j.status).toLowerCase()==='completed'){
+          const url = j.download_url || downloadUrl(currentJobId);
+          showActions(url); stopPolling();
+        } else if (j.error){ stopPolling(); }
+      }catch(_){}
+    }, 1500);
+  }
+
+  el('upscaleBtn').onclick = async ()=>{
+    if(!selectedFile) return alert('Select an image first!');
+    const fd = new FormData();
+    fd.append('file', selectedFile);
+    fd.append('type', 'image');
+    fd.append('scale', el('scaleSelect').value);
+    fd.append('preset', el('presetSelect').value);
+    actions.style.display='none';
+    pbar.style.display='block';
+    pfill.style.width='0%';
+    ptext.textContent='Uploading...';
+    try{
+      const res = await fetch('/api/upload', { method:'POST', body:fd });
+      const data = await res.json().catch(()=> ({}));
+      currentJobId = data && data.job_id ? data.job_id : null;
+      if(!currentJobId){ ptext.textContent='Error: job id missing'; return; }
+      startPolling();
+    }catch(err){ ptext.textContent = 'Upload error: ' + err.message; }
+  };
+
+  socket.on('upscale_progress', (msg)=>{
+    if(!currentJobId || (msg.job_id && msg.job_id !== currentJobId)) return;
+    if(typeof msg.progress === 'number') pfill.style.width = msg.progress + '%';
+    if(msg.message) ptext.textContent = `${msg.message}${typeof msg.progress==='number' ? ' ('+msg.progress+'%)':''}`;
+    if(msg.download_url){ showActions(msg.download_url); stopPolling(); }
+    if(msg.progress === 100){ showActions(downloadUrl(currentJobId)); stopPolling(); }
+  });
+  socket.on('upscale_done', (msg)=>{
+    if(!currentJobId || (msg.job_id && msg.job_id !== currentJobId)) return;
+    showActions(msg.download_url || downloadUrl(currentJobId)); stopPolling();
+  });
+  socket.on('job_complete', (msg)=>{
+    if(!currentJobId || (msg.job_id && msg.job_id !== currentJobId)) return;
+    showActions(downloadUrl(currentJobId)); stopPolling();
+  });
+</script>
+{% endblock %}
+
+
+

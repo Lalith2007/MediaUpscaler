@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block title %}Complete Profile - PixelForge{% endblock %}
+
+{% block content_style %}
+  .profile-setup-container {
+    max-width: 600px;
+    margin: 100px auto;
+    padding: 0 20px;
+    position: relative;
+    z-index: 2;
+  }
+
+  .profile-setup-card {
+    background: rgba(0, 212, 255, 0.08);
+    border: 1px solid rgba(0, 212, 255, 0.3);
+    border-radius: 20px;
+    padding: 40px;
+    backdrop-filter: blur(20px);
+  }
+
+  .setup-title {
+    font-size: 2rem;
+    font-weight: 900;
+    background: linear-gradient(135deg, #00d4ff, #ff00ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 10px;
+    text-align: center;
+  }
+
+  .setup-subtitle {
+    text-align: center;
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 30px;
+  }
+
+  .form-group {
+    margin-bottom: 20px;
+  }
+
+  .form-label {
+    display: block;
+    color: #00d4ff;
+    font-weight: 900;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+
+  .form-input,
+  .form-select,
+  .form-textarea {
+    width: 100%;
+    padding: 12px 16px;
+    background: rgba(0, 212, 255, 0.05);
+    border: 1px solid rgba(0, 212, 255, 0.3);
+    border-radius: 10px;
+    color: #fff;
+    font-size: 1rem;
+    font-family: inherit;
+    transition: all 0.3s;
+  }
+
+  .form-input:focus,
+  .form-select:focus,
+  .form-textarea:focus {
+    outline: none;
+    border-color: #00d4ff;
+    background: rgba(0, 212, 255, 0.1);
+    box-shadow: 0 0 20px rgba(0, 212, 255, 0.2);
+  }
+
+  .form-textarea {
+    resize: vertical;
+    min-height: 100px;
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+  }
+
+  .submit-btn {
+    width: 100%;
+    padding: 16px;
+    background: linear-gradient(135deg, #00d4ff, #00ff88);
+    color: #000;
+    border: none;
+    border-radius: 10px;
+    font-weight: 900;
+    font-size: 1rem;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.3s;
+    margin-top: 20px;
+  }
+
+  .submit-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(0, 212, 255, 0.4);
+  }
+
+  .required {
+    color: #ff006e;
+  }
+
+  @media (max-width: 600px) {
+    .form-row {
+      grid-template-columns: 1fr;
+    }
+    .profile-setup-card {
+      padding: 24px;
+    }
+  }
+{% endblock %}
+
+{% block content %}
+<div class="profile-setup-container">
+  <div class="profile-setup-card">
+    <h1 class="setup-title">Complete Your Profile</h1>
+    <p class="setup-subtitle">Tell us more about yourself to personalize your experience</p>
+
+    <form method="POST" action="{{ url_for('complete_profile') }}">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">First Name <span class="required">*</span></label>
+          <input type="text" name="first_name" class="form-input" required placeholder="John">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Last Name <span class="required">*</span></label>
+          <input type="text" name="last_name" class="form-input" required placeholder="Doe">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Age</label>
+          <input type="number" name="age" class="form-input" min="13" max="120" placeholder="25">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Country</label>
+          <input type="text" name="country" class="form-input" placeholder="United States">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Interests <span class="required">*</span></label>
+        <input type="text" name="interests" class="form-input" required placeholder="e.g., Photography, Video Editing, AI, etc.">
+        <small style="color: rgba(255, 255, 255, 0.5); margin-top: 4px; display: block;">Separate multiple interests with commas</small>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Bio</label>
+        <textarea name="bio" class="form-textarea" placeholder="Tell us about yourself..."></textarea>
+      </div>
+
+      <button type="submit" class="submit-btn">🚀 Complete Profile & Get Started</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,352 @@
+{% extends "base.html" %}
+
+{% block title %}History - PixelForge{% endblock %}
+
+{% block content_style %}
+  .history-container {
+    max-width: 1200px;
+    margin: 80px auto 80px;
+    padding: 0 20px;
+    position: relative;
+    z-index: 2;
+  }
+
+  .history-header {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+
+  .history-title {
+    font-size: 2.5rem;
+    font-weight: 900;
+    background: linear-gradient(135deg, #00d4ff, #ff00ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 20px;
+  }
+
+  .filter-bar {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 30px;
+  }
+
+  .filter-btn {
+    padding: 8px 16px;
+    background: rgba(0, 212, 255, 0.15);
+    border: 1px solid rgba(0, 212, 255, 0.3);
+    color: rgba(255, 255, 255, 0.8);
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-weight: 700;
+  }
+
+  .filter-btn.active {
+    background: linear-gradient(135deg, #00d4ff, #00ff88);
+    color: #000;
+    border-color: #00d4ff;
+  }
+
+  .filter-btn:hover {
+    border-color: #00d4ff;
+  }
+
+  .jobs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
+    margin-bottom: 40px;
+  }
+
+  .job-card {
+    background: rgba(0, 212, 255, 0.08);
+    border: 1px solid rgba(0, 212, 255, 0.2);
+    border-radius: 16px;
+    padding: 20px;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s;
+    cursor: pointer;
+  }
+
+  .job-card:hover {
+    border-color: #00d4ff;
+    box-shadow: 0 0 30px rgba(0, 212, 255, 0.2);
+    transform: translateY(-4px);
+  }
+
+  .job-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: 12px;
+  }
+
+  .job-type {
+    display: inline-block;
+    padding: 4px 10px;
+    background: linear-gradient(135deg, #00d4ff, #00ff88);
+    color: #000;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+
+  .job-status {
+    font-size: 0.8rem;
+    font-weight: 900;
+    padding: 4px 10px;
+    border-radius: 6px;
+    text-transform: uppercase;
+  }
+
+  .status-completed { background: rgba(0, 255, 136, 0.2); color: #00ff88; }
+  .status-failed { background: rgba(255, 0, 110, 0.2); color: #ff006e; }
+  .status-processing { background: rgba(0, 217, 255, 0.2); color: #00d9ff; animation: pulse 2s infinite; }
+
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+
+  .job-info {
+    margin: 12px 0;
+  }
+
+  .job-filename {
+    font-size: 0.95rem;
+    color: rgba(255, 255, 255, 0.9);
+    word-break: break-word;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+
+  .job-details {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.6);
+  }
+
+  .job-progress {
+    margin: 12px 0;
+  }
+
+  .progress-bar-small {
+    width: 100%;
+    height: 6px;
+    background: rgba(0, 212, 255, 0.2);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .progress-fill-small {
+    height: 100%;
+    background: linear-gradient(90deg, #00d4ff, #00ff88);
+    width: 100%;
+  }
+
+  .progress-text {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.6);
+    margin-top: 4px;
+  }
+
+  .job-time {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.5);
+    text-align: right;
+    margin-top: 12px;
+  }
+
+  .job-action {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .action-link {
+    flex: 1;
+    padding: 8px 12px;
+    background: rgba(0, 212, 255, 0.15);
+    color: #00d4ff;
+    border: 1px solid rgba(0, 212, 255, 0.3);
+    text-decoration: none;
+    border-radius: 8px;
+    text-align: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    transition: all 0.3s;
+    cursor: pointer;
+  }
+
+  .action-link:hover {
+    background: #00d4ff;
+    color: #000;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: rgba(255, 255, 255, 0.6);
+  }
+
+  .empty-icon {
+    font-size: 3rem;
+    margin-bottom: 15px;
+  }
+
+  .pagination {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 30px;
+  }
+
+  .page-btn {
+    padding: 8px 12px;
+    background: rgba(0, 212, 255, 0.15);
+    border: 1px solid rgba(0, 212, 255, 0.3);
+    color: rgba(255, 255, 255, 0.8);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-weight: 700;
+  }
+
+  .page-btn:hover, .page-btn.active {
+    background: linear-gradient(135deg, #00d4ff, #00ff88);
+    color: #000;
+    border-color: #00d4ff;
+  }
+
+  .page-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+{% endblock %}
+
+{% block content %}
+<div class="history-container">
+  <div class="history-header">
+    <h1 class="history-title">📜 Processing History</h1>
+  </div>
+
+  <!-- Filter Bar -->
+  <div class="filter-bar">
+    <button class="filter-btn active" onclick="filterJobs('all')">All</button>
+    <button class="filter-btn" onclick="filterJobs('image')">🖼️ Images</button>
+    <button class="filter-btn" onclick="filterJobs('video')">🎬 Videos</button>
+    <button class="filter-btn" onclick="filterJobs('completed')">✅ Completed</button>
+    <button class="filter-btn" onclick="filterJobs('processing')">⏳ Processing</button>
+    <button class="filter-btn" onclick="filterJobs('failed')">❌ Failed</button>
+  </div>
+
+  <!-- Jobs Grid -->
+  <div class="jobs-grid" id="jobsGrid">
+    <div class="empty-state">
+      <div class="empty-icon">📭</div>
+      <p>No processing jobs yet. Start by uploading an image or video!</p>
+    </div>
+  </div>
+
+  <!-- Pagination -->
+  <div class="pagination" id="pagination"></div>
+</div>
+
+<script>
+  let allJobs = [];
+  let currentFilter = 'all';
+  let currentPage = 1;
+  const jobsPerPage = 12;
+
+  async function loadJobs() {
+    try {
+      const res = await fetch('/api/user-jobs');
+      allJobs = await res.json();
+      renderJobs();
+    } catch (e) {
+      console.error('Failed to load jobs:', e);
+    }
+  }
+
+  function filterJobs(filter) {
+    currentFilter = filter;
+    currentPage = 1;
+    document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+    renderJobs();
+  }
+
+  function getFilteredJobs() {
+    return allJobs.filter(job => {
+      if (currentFilter === 'all') return true;
+      if (currentFilter === 'image' || currentFilter === 'video') return job.job_type === currentFilter;
+      if (currentFilter === 'completed' || currentFilter === 'processing' || currentFilter === 'failed') {
+        return job.status === currentFilter;
+      }
+      return true;
+    });
+  }
+
+  function renderJobs() {
+    const filtered = getFilteredJobs();
+    const start = (currentPage - 1) * jobsPerPage;
+    const end = start + jobsPerPage;
+    const paginated = filtered.slice(start, end);
+
+    const grid = document.getElementById('jobsGrid');
+    if (paginated.length === 0) {
+      grid.innerHTML = '<div class="empty-state" style="grid-column: 1/-1;"><div class="empty-icon">📭</div><p>No jobs found.</p></div>';
+    } else {
+      grid.innerHTML = paginated.map(job => `
+        <div class="job-card">
+          <div class="job-header">
+            <span class="job-type">${job.job_type === 'image' ? '🖼️ Image' : '🎬 Video'}</span>
+            <span class="job-status status-${job.status}">${job.status}</span>
+          </div>
+          <div class="job-info">
+            <div class="job-filename">${job.input_file.split('/').pop()}</div>
+            <div class="job-details">Scale: ${job.settings?.scale || 'N/A'}x • ${(job.settings?.preset || 'balanced').toUpperCase()}</div>
+          </div>
+          ${job.status === 'processing' ? `
+            <div class="job-progress">
+              <div class="progress-bar-small"><div class="progress-fill-small" style="width: ${job.progress}%"></div></div>
+              <div class="progress-text">${job.progress}%</div>
+            </div>
+          ` : ''}
+          <div class="job-time">${new Date(job.created_at).toLocaleDateString()}</div>
+          ${job.status === 'completed' ? `
+            <div class="job-action">
+              <a href="/api/download/${job.job_id}" class="action-link">⬇️ Download</a>
+            </div>
+          ` : ''}
+        </div>
+      `).join('');
+    }
+
+    renderPagination(filtered.length);
+  }
+
+  function renderPagination(total) {
+    const pages = Math.ceil(total / jobsPerPage);
+    const paginationDiv = document.getElementById('pagination');
+    paginationDiv.innerHTML = '';
+
+    if (pages <= 1) return;
+
+    for (let i = 1; i <= pages; i++) {
+      const btn = document.createElement('button');
+      btn.className = `page-btn ${i === currentPage ? 'active' : ''}`;
+      btn.textContent = i;
+      btn.onclick = () => {
+        currentPage = i;
+        renderJobs();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      };
+      paginationDiv.appendChild(btn);
+    }
+  }
+
+  loadJobs();
+  setInterval(loadJobs, 3000); // Refresh every 3 seconds
+</script>
+{% endblock %}

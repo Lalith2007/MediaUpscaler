@@ -1,0 +1,611 @@
+{% extends "base.html" %}
+{% block title %}Video Upscaler - PixelForge{% endblock %}
+
+{% block nav_extra %}{% endblock %}
+
+{% block content %}
+<canvas id="bgCanvas" style="position: fixed; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none;"></canvas>
+
+<style>
+  :root {
+    --primary: #00ff88;
+    --secondary: #ff006e;
+    --tertiary: #00d9ff;
+    --dark-bg: #0a0e27;
+    --darker-bg: #050812;
+    --glass: rgba(10, 14, 39, 0.7);
+    --neon-glow: rgba(0, 255, 136, 0.3);
+  }
+
+  body { background: linear-gradient(135deg, var(--darker-bg) 0%, #1a0f2e 50%, var(--dark-bg) 100%); }
+
+  .video-container {
+    position: relative;
+    z-index: 2;
+    max-width: 1100px;
+    margin: 80px auto 90px;
+    padding: 0 20px;
+  }
+
+  .hero-section {
+    text-align: center;
+    margin-bottom: 44px;
+    opacity: 0;
+  }
+
+  .hero-title {
+    font-size: 4rem;
+    font-weight: 950;
+    margin: 0 0 12px 0;
+    background: linear-gradient(135deg, var(--primary), var(--tertiary), var(--secondary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: 0 0 60px rgba(0, 255, 136, 0.4);
+    letter-spacing: -2px;
+  }
+
+  .hero-subtitle {
+    font-size: 1.1rem;
+    color: rgba(255, 255, 255, 0.8);
+    margin: 0;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-weight: 700;
+    text-shadow: 0 2px 20px rgba(0, 255, 136, 0.2);
+  }
+
+  /* Film reel animation */
+  .reel-container {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    margin: 32px 0;
+    height: 60px;
+  }
+
+  .reel {
+    width: 60px;
+    height: 60px;
+    border: 2px solid var(--primary);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    box-shadow: 0 0 20px var(--neon-glow), inset 0 0 20px rgba(0, 255, 136, 0.1);
+    position: relative;
+  }
+
+  .reel::before {
+    content: '';
+    position: absolute;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    border: 1px solid var(--tertiary);
+    opacity: 0.5;
+    animation: spinFast 3s linear infinite;
+  }
+
+  @keyframes spinFast { to { transform: rotate(360deg); } }
+
+  /* Upload zone */
+  .upload-section {
+    margin: 36px 0;
+  }
+
+  .upload-zone {
+    position: relative;
+    background: var(--glass);
+    border: 2px solid var(--primary);
+    border-radius: 24px;
+    padding: 80px 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    backdrop-filter: blur(20px);
+    overflow: hidden;
+  }
+
+  .upload-zone::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(0, 255, 136, 0.1), transparent);
+    animation: shimmer 3s infinite;
+  }
+
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+
+  .upload-zone:hover {
+    border-color: var(--secondary);
+    box-shadow: 0 0 40px rgba(255, 0, 110, 0.5), inset 0 0 40px rgba(255, 0, 110, 0.1);
+    transform: translateY(-6px);
+  }
+
+  .upload-icon {
+    font-size: 4.5rem;
+    margin-bottom: 16px;
+    filter: drop-shadow(0 0 20px var(--primary));
+    display: inline-block;
+  }
+
+  .upload-zone h2 {
+    color: #fff;
+    font-size: 1.8rem;
+    font-weight: 900;
+    margin: 16px 0 8px;
+    text-shadow: 0 0 20px var(--neon-glow);
+  }
+
+  .upload-zone p {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 1rem;
+    margin: 0;
+  }
+
+  .upload-zone .file-limit {
+    color: rgba(0, 255, 136, 0.8);
+    font-size: 0.85rem;
+    margin-top: 8px;
+    font-weight: 700;
+    text-shadow: 0 0 10px var(--neon-glow);
+  }
+
+  input[type="file"] { display: none; }
+
+  /* Scale selector with animated tiles */
+  .scale-section {
+    margin: 32px 0;
+  }
+
+  .scale-title {
+    color: var(--primary);
+    font-weight: 900;
+    font-size: 1.1rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 16px;
+    text-shadow: 0 0 20px var(--neon-glow);
+  }
+
+  .scale-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 14px;
+  }
+
+  .scale-card {
+    position: relative;
+    padding: 24px;
+    background: linear-gradient(135deg, rgba(0, 255, 136, 0.05), rgba(0, 217, 255, 0.05));
+    border: 2px solid rgba(0, 255, 136, 0.3);
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    text-align: center;
+    backdrop-filter: blur(10px);
+    overflow: hidden;
+  }
+
+  .scale-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at center, rgba(0, 255, 136, 0.1), transparent);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .scale-card:hover {
+    border-color: var(--secondary);
+    box-shadow: 0 0 30px rgba(255, 0, 110, 0.4), inset 0 0 30px rgba(255, 0, 110, 0.05);
+    transform: translateY(-4px) scale(1.02);
+  }
+
+  .scale-card.selected {
+    background: linear-gradient(135deg, rgba(0, 255, 136, 0.15), rgba(0, 217, 255, 0.15));
+    border-color: var(--primary);
+    box-shadow: 0 0 40px var(--neon-glow), inset 0 0 30px rgba(0, 255, 136, 0.1);
+  }
+
+  .scale-card.selected::before { opacity: 1; }
+
+  .scale-value {
+    font-size: 2.2rem;
+    font-weight: 900;
+    color: var(--primary);
+    text-shadow: 0 0 15px var(--neon-glow);
+  }
+
+  .scale-label {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.6);
+    margin-top: 6px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  /* Upload button */
+  .upload-btn {
+    width: 100%;
+    padding: 18px;
+    border: none;
+    border-radius: 16px;
+    background: linear-gradient(135deg, var(--primary), var(--tertiary));
+    color: #000;
+    font-weight: 950;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 12px 40px rgba(0, 255, 136, 0.3);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 24px;
+  }
+
+  .upload-btn:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 18px 60px rgba(0, 255, 136, 0.5);
+  }
+
+  .upload-btn:active { transform: translateY(-2px); }
+
+  /* File info */
+  .file-info {
+    display: none;
+    margin-top: 16px;
+    padding: 14px 18px;
+    background: rgba(0, 255, 136, 0.1);
+    border-left: 3px solid var(--primary);
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.95rem;
+  }
+
+  .file-error {
+    display: none;
+    margin-top: 16px;
+    padding: 14px 18px;
+    background: rgba(255, 0, 110, 0.1);
+    border-left: 3px solid var(--secondary);
+    border-radius: 8px;
+    color: rgba(255, 100, 150, 0.9);
+    font-size: 0.95rem;
+  }
+
+  /* Progress section */
+  .progress-section {
+    margin-top: 32px;
+    display: none;
+  }
+
+  .progress-bar {
+    width: 100%;
+    height: 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid rgba(0, 255, 136, 0.2);
+  }
+
+  .progress-fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--primary), var(--tertiary), var(--secondary));
+    border-radius: 10px;
+    transition: width 0.3s;
+    box-shadow: 0 0 20px var(--primary);
+  }
+
+  .progress-text {
+    text-align: center;
+    color: rgba(255, 255, 255, 0.8);
+    margin: 12px 0 0;
+    font-weight: 700;
+    text-shadow: 0 0 10px var(--neon-glow);
+  }
+
+  /* Download actions */
+  .result-actions {
+    display: none;
+    margin-top: 20px;
+    text-align: center;
+  }
+
+  .download-btn {
+    display: inline-block;
+    padding: 14px 24px;
+    background: linear-gradient(135deg, var(--secondary), #ff4d8f);
+    color: #fff;
+    border: none;
+    border-radius: 14px;
+    text-decoration: none;
+    font-weight: 900;
+    cursor: pointer;
+    box-shadow: 0 12px 30px rgba(255, 0, 110, 0.35);
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .download-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 16px 45px rgba(255, 0, 110, 0.45);
+  }
+
+  @media (max-width: 768px) {
+    .hero-title { font-size: 2.4rem; }
+    .scale-grid { grid-template-columns: repeat(2, 1fr); }
+    .upload-zone { padding: 50px 24px; }
+  }
+</style>
+
+<div class="video-container">
+  <div class="hero-section">
+    <h1 class="hero-title">🎬 Video Upscaler</h1>
+    <p class="hero-subtitle">4K → 8K • Pro Video Enhancement</p>
+    <div class="reel-container">
+      <div class="reel">📹</div>
+      <div class="reel">▶</div>
+      <div class="reel">⚡</div>
+    </div>
+  </div>
+
+  <div class="upload-section">
+    <div class="upload-zone" id="uploadZone">
+      <div class="upload-icon">🎞️</div>
+      <h2>Drop your video here</h2>
+      <p>or click to select</p>
+      <p class="file-limit">Max 500 MB • MP4, MOV, AVI</p>
+      <input type="file" id="videoInput" accept="video/mp4,video/quicktime,video/x-msvideo,video/*">
+    </div>
+    <div class="file-info" id="fileInfo"></div>
+    <div class="file-error" id="fileError"></div>
+  </div>
+
+  <div class="scale-section">
+    <div class="scale-title">Select Upscale Resolution</div>
+    <div class="scale-grid">
+      <div class="scale-card" data-scale="2">
+        <div class="scale-value">2x</div>
+        <div class="scale-label">4K UHD</div>
+      </div>
+      <div class="scale-card selected" data-scale="4">
+        <div class="scale-value">4x</div>
+        <div class="scale-label">8K Cinema</div>
+      </div>
+      <div class="scale-card" data-scale="8">
+        <div class="scale-value">8x</div>
+        <div class="scale-label">16K Pro</div>
+      </div>
+    </div>
+  </div>
+
+  <button class="upload-btn" id="uploadBtn">🚀 Start Processing</button>
+
+  <div class="progress-section" id="progressSection">
+    <div class="progress-bar">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+    <p class="progress-text" id="progressText"></p>
+    <div class="result-actions" id="resultActions">
+      <a id="downloadLink" class="download-btn" href="#" download>⬇️ Download Video</a>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Hero reveal animation
+  gsap.to('.hero-section', {
+    opacity: 1,
+    y: 0,
+    duration: 0.8,
+    ease: 'power3.out'
+  });
+
+  // Stagger card animations
+  gsap.fromTo('.scale-card',
+    { opacity: 0, y: 20 },
+    { opacity: 1, y: 0, duration: 0.6, stagger: 0.1, ease: 'back.out' }
+  );
+
+  // Scale card selection
+  document.querySelectorAll('.scale-card').forEach(card => {
+    card.addEventListener('click', function() {
+      document.querySelectorAll('.scale-card').forEach(c => c.classList.remove('selected'));
+      this.classList.add('selected');
+      gsap.fromTo(this,
+        { scale: 1.1, rotation: 2 },
+        { scale: 1, rotation: 0, duration: 0.4, ease: 'back.out' }
+      );
+    });
+  });
+
+  // Background 3D animation
+  const canvas = document.getElementById('bgCanvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = innerWidth;
+  canvas.height = innerHeight;
+
+  const particles = [];
+  const particleCount = 80;
+
+  class Particle {
+    constructor() {
+      this.x = Math.random() * canvas.width;
+      this.y = Math.random() * canvas.height;
+      this.z = Math.random() * 100;
+      this.vx = (Math.random() - 0.5) * 0.5;
+      this.vy = (Math.random() - 0.5) * 0.5;
+      this.vz = (Math.random() - 0.5) * 2;
+    }
+
+    update() {
+      this.x += this.vx;
+      this.y += this.vy;
+      this.z += this.vz;
+
+      if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
+      if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
+      if (this.z < 0) { this.z = 100; this.vz *= -1; }
+      if (this.z > 100) { this.z = 0; this.vz *= -1; }
+    }
+
+    draw() {
+      const scale = this.z / 100;
+      const size = 2 * scale;
+      const opacity = scale * 0.6;
+
+      ctx.fillStyle = `rgba(0, 255, 136, ${opacity})`;
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  for (let i = 0; i < particleCount; i++) {
+    particles.push(new Particle());
+  }
+
+  function animate() {
+    ctx.fillStyle = 'rgba(5, 8, 18, 0.1)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    particles.forEach(p => {
+      p.update();
+      p.draw();
+    });
+
+    requestAnimationFrame(animate);
+  }
+
+  animate();
+
+  addEventListener('resize', () => {
+    canvas.width = innerWidth;
+    canvas.height = innerHeight;
+  });
+
+  // Upload functionality
+  const socket = io('http://localhost:5001');
+  const el = id => document.getElementById(id);
+  const uploadZone = el('uploadZone'), videoInput = el('videoInput');
+  const fileInfo = el('fileInfo'), fileError = el('fileError'), progressSection = el('progressSection');
+  const progressFill = el('progressFill'), progressText = el('progressText');
+  const resultActions = el('resultActions'), downloadLink = el('downloadLink');
+
+  let selectedFile = null, currentJobId = null, pollTimer = null;
+  const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500 MB
+
+  uploadZone.onclick = () => videoInput.click();
+  videoInput.onchange = e => {
+    selectedFile = e.target.files[0];
+    fileError.style.display = 'none';
+    if (!selectedFile) return;
+
+    if (selectedFile.size > MAX_FILE_SIZE) {
+      fileError.textContent = `❌ File too large: ${(selectedFile.size / 1024 / 1024).toFixed(1)} MB. Max 500 MB.`;
+      fileError.style.display = 'block';
+      selectedFile = null;
+      return;
+    }
+
+    fileInfo.textContent = `📁 ${selectedFile.name} • ${(selectedFile.size / 1024 / 1024).toFixed(2)} MB`;
+    fileInfo.style.display = 'block';
+  };
+
+  function stopPolling() {
+    if (pollTimer) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+  }
+
+  function startPolling() {
+    stopPolling();
+    pollTimer = setInterval(async () => {
+      if (!currentJobId) return;
+      try {
+        const r = await fetch(`/api/job/${currentJobId}`, { cache: 'no-store' });
+        if (!r.ok) return;
+        const j = await r.json();
+        if (j.status === 'completed') {
+          showDownload(j.download_url || `/api/download/${currentJobId}`);
+          stopPolling();
+        }
+      } catch (_) {}
+    }, 1500);
+  }
+
+  function showDownload(url) {
+    downloadLink.href = url;
+    // Make the download section visible
+    resultActions.style.display = 'block';
+
+    gsap.fromTo(resultActions,
+      { opacity: 0, y: 10 },
+      { opacity: 1, y: 0, duration: 0.5, ease: 'power3.out' }
+    );
+  }
+
+  el('uploadBtn').onclick = async () => {
+    if (!selectedFile) return alert('Select a video first!');
+    const scale = document.querySelector('.scale-card.selected').getAttribute('data-scale') || '4';
+
+    const fd = new FormData();
+    fd.append('file', selectedFile);
+    fd.append('type', 'video');
+    fd.append('scale', scale);
+    fd.append('preset', 'balanced');
+
+    resultActions.style.display = 'none';
+    fileError.style.display = 'none';
+    progressSection.style.display = 'block';
+    progressFill.style.width = '0%';
+    progressText.textContent = 'Uploading video...';
+
+    try {
+      const res = await fetch('/api/upload', { method: 'POST', body: fd });
+      const data = await res.json().catch(() => ({}));
+      currentJobId = data && data.job_id ? data.job_id : null;
+      if (!currentJobId) { progressText.textContent = 'Error: job id missing'; return; }
+      startPolling();
+    } catch (err) {
+      progressText.textContent = 'Upload error: ' + err.message;
+    }
+  };
+
+  socket.on('upscale_progress', msg => {
+    if (!currentJobId || (msg.job_id && msg.job_id !== currentJobId)) return;
+    if (typeof msg.progress === 'number') progressFill.style.width = msg.progress + '%';
+    if (msg.message) {
+      progressText.textContent = `${msg.message}${typeof msg.progress === 'number' ? ' • ' + msg.progress + '%' : ''}`;
+    }
+    if (msg.download_url) {
+      showDownload(msg.download_url);
+      stopPolling();
+    }
+    if (msg.progress === 100) {
+      showDownload(`/api/download/${currentJobId}`);
+      stopPolling();
+    }
+  });
+
+  socket.on('upscale_done', msg => {
+    if (!currentJobId || (msg.job_id && msg.job_id !== currentJobId)) return;
+    showDownload(msg.download_url || `/api/download/${currentJobId}`);
+    stopPolling();
+  });
+
+  socket.on('job_complete', msg => {
+    if (!currentJobId || (msg.job_id && msg.job_id !== currentJobId)) return;
+    showDownload(`/api/download/${currentJobId}`);
+    stopPolling();
+  });
+</script>
+{% endblock %}
