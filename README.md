@@ -1,7 +1,7 @@
-Here's the **universal, cross-platform README.md** that works for Windows, macOS, and Linux users:
+
 
 ```markdown
-# 🎬 MediaUpscaler - AI-Powered Image & Video Enhancement Tool
+ 🎬 MediaUpscaler - AI-Powered Image & Video Enhancement Tool
 
 A professional-grade desktop application that uses **Real-ESRGAN AI** to upscale images and videos to stunning quality (up to 4K), with frame interpolation powered by **RIFE**.
 
