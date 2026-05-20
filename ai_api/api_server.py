@@ -538,4 +538,4 @@ def health():
 
 if __name__ == '__main__':
     print("🚀 ULTIMATE AI SERVER STARTED")
-    socketio.run(app, host='localhost', port=5001, debug=False)
+    socketio.run(app, host='localhost', port=5001, debug=False, allow_unsafe_werkzeug=True)

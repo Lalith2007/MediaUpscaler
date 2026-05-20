@@ -227,7 +227,29 @@ def index():
 
 @app.route('/login')
 def login():
+    # If Google OAuth is not configured, fall back to local dev login
+    if not os.environ.get('GOOGLE_CLIENT_ID'):
+        return redirect(url_for('dev_login'))
     return google.authorize_redirect(url_for('authorize', _external=True))
+
+
+@app.route('/dev-login')
+def dev_login():
+    """Local developer bypass — no Google OAuth required."""
+    user = User.query.filter_by(google_id='local_dev_user').first()
+    if not user:
+        user = User(
+            google_id='local_dev_user',
+            name='Local Developer',
+            email='dev@localhost',
+            profile_pic=None,
+            first_name='Developer',
+            is_profile_complete=True
+        )
+        db.session.add(user)
+        db.session.commit()
+    login_user(user)
+    return redirect(url_for('dashboard'))
 
 
 @app.route('/authorize')
@@ -497,4 +519,4 @@ def api_user_jobs():
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    socketio.run(app, debug=True, host='localhost', port=8000)
+    socketio.run(app, debug=True, host='localhost', port=8000, allow_unsafe_werkzeug=True)
