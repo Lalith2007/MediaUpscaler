@@ -387,6 +387,13 @@
   </div>
 
   <button class="upload-btn" id="uploadBtn">Start Processing</button>
+  <button class="upload-btn" id="previewBtn" style="background: linear-gradient(135deg, #ff006e, #ff4d8f); margin-top: 12px; font-size: 0.95rem;">⚡ Generate 3s Preview (Free)</button>
+
+  <!-- Preview player -->
+  <div id="previewSection" style="display:none; margin-top: 24px; text-align:center;">
+    <p style="color: var(--primary); font-weight: 900; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 12px;">🎬 3-Second Preview</p>
+    <video id="previewPlayer" controls style="max-width:100%; border-radius: 16px; border: 2px solid var(--primary); box-shadow: 0 0 30px var(--neon-glow);"></video>
+  </div>
 
   <div class="progress-section" id="progressSection">
     <div class="progress-bar">
@@ -503,6 +510,42 @@
   const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500 MB
 
   uploadZone.onclick = () => videoInput.click();
+
+  // --- Drag-and-Drop ---
+  uploadZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadZone.style.borderColor = '#ff006e';
+    uploadZone.style.boxShadow = '0 0 40px rgba(255, 0, 110, 0.5), inset 0 0 40px rgba(255, 0, 110, 0.1)';
+    uploadZone.style.transform = 'translateY(-6px) scale(1.02)';
+  });
+  uploadZone.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    uploadZone.style.borderColor = '';
+    uploadZone.style.boxShadow = '';
+    uploadZone.style.transform = '';
+  });
+  uploadZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadZone.style.borderColor = '';
+    uploadZone.style.boxShadow = '';
+    uploadZone.style.transform = '';
+    fileError.style.display = 'none';
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    if (file.size > MAX_FILE_SIZE) {
+      fileError.textContent = `❌ File too large: ${(file.size / 1024 / 1024).toFixed(1)} MB. Max 500 MB.`;
+      fileError.style.display = 'block';
+      return;
+    }
+    if (file.type.startsWith('video/')) {
+      selectedFile = file;
+      fileInfo.textContent = `📁 ${file.name} • ${(file.size / 1024 / 1024).toFixed(2)} MB`;
+      fileInfo.style.display = 'block';
+    } else {
+      alert('Please drop a video file (MP4, MOV, AVI)');
+    }
+  });
+
   videoInput.onchange = e => {
     selectedFile = e.target.files[0];
     fileError.style.display = 'none';
@@ -544,15 +587,50 @@
 
   function showDownload(url) {
     downloadLink.href = url;
-    // Make the download section visible
     resultActions.style.display = 'block';
-
     gsap.fromTo(resultActions,
       { opacity: 0, y: 10 },
       { opacity: 1, y: 0, duration: 0.5, ease: 'power3.out' }
     );
   }
 
+  // --- Preview Button ---
+  el('previewBtn').onclick = async () => {
+    if (!selectedFile) return alert('Select a video first!');
+    const scale = document.querySelector('.scale-card.selected').getAttribute('data-scale') || '4';
+
+    const previewBtn = el('previewBtn');
+    previewBtn.textContent = '⏳ Generating preview...';
+    previewBtn.disabled = true;
+    previewBtn.style.opacity = '0.6';
+
+    const fd = new FormData();
+    fd.append('file', selectedFile);
+    fd.append('scale', scale);
+    fd.append('preset', 'balanced');
+
+    try {
+      const res = await fetch('/api/preview', { method: 'POST', body: fd });
+      const data = await res.json();
+      if (data.success && data.preview_url) {
+        const previewSection = el('previewSection');
+        const previewPlayer = el('previewPlayer');
+        previewPlayer.src = data.preview_url;
+        previewSection.style.display = 'block';
+        gsap.fromTo(previewSection, { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' });
+      } else {
+        alert('Preview failed: ' + (data.error || 'Unknown error'));
+      }
+    } catch (err) {
+      alert('Preview error: ' + err.message);
+    } finally {
+      previewBtn.textContent = '⚡ Generate 3s Preview (Free)';
+      previewBtn.disabled = false;
+      previewBtn.style.opacity = '1';
+    }
+  };
+
+  // --- Full Upload ---
   el('uploadBtn').onclick = async () => {
     if (!selectedFile) return alert('Select a video first!');
     const scale = document.querySelector('.scale-card.selected').getAttribute('data-scale') || '4';
@@ -572,6 +650,7 @@
     try {
       const res = await fetch('/api/upload', { method: 'POST', body: fd });
       const data = await res.json().catch(() => ({}));
+      if (data.error) { progressText.textContent = '❌ ' + data.error; return; }
       currentJobId = data && data.job_id ? data.job_id : null;
       if (!currentJobId) { progressText.textContent = 'Error: job id missing'; return; }
       startPolling();

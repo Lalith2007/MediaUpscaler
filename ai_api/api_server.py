@@ -14,6 +14,15 @@ import subprocess
 import sys
 import math
 
+# Face restoration (ONNX-based GFPGAN)
+try:
+    from face_restorer import restore_faces, ensure_models as ensure_face_models, is_available as face_restore_available
+    FACE_RESTORE_AVAILABLE = True
+    print("✅ Face restoration module loaded.")
+except ImportError as e:
+    FACE_RESTORE_AVAILABLE = False
+    print(f"⚠️ Face restoration not available: {e}")
+
 
 # ===== PYINSTALLER PATH HELPER =====
 def resource_path(relative_path):
@@ -398,6 +407,7 @@ def upscale_image():
         img = Image.open(io.BytesIO(img_bytes)).convert('RGB')
         scale = int(data.get('scale', 4))
         preset = data.get('preset', 'balanced')
+        face_enhance = data.get('face_enhance', False)
 
         emit_progress(5, "Analyzing...")
         method = "Enhanced Lanczos"
@@ -409,9 +419,20 @@ def upscale_image():
                 img_cv = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
                 output_cv = run_real_esrgan(img_cv)
                 if output_cv is not None:
+                    # --- Face Restoration (after upscaling) ---
+                    if face_enhance and FACE_RESTORE_AVAILABLE:
+                        emit_progress(75, "Restoring faces with GFPGAN...")
+                        output_cv, face_count = restore_faces(output_cv)
+                        if face_count > 0:
+                            method_suffix = f" + Face Restore ({face_count} face{'s' if face_count > 1 else ''})"
+                        else:
+                            method_suffix = " (no faces detected)"
+                    else:
+                        method_suffix = ""
+
                     result = Image.fromarray(cv2.cvtColor(output_cv, cv2.COLOR_BGR2RGB))
                     result = apply_color_science(result, preset)
-                    method = f"Real-ESRGAN + {preset.title()}"
+                    method = f"Real-ESRGAN + {preset.title()}{method_suffix}"
             except Exception as e:
                 print(f"AI Failed: {e}")
 

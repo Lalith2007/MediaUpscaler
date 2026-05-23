@@ -57,6 +57,26 @@
     </div>
   </div>
 
+  <!-- Face Enhancement Toggle -->
+  <div class="control-group" style="margin: 18px 0; display:flex; align-items:center; justify-content:space-between; padding: 16px 20px;">
+    <div>
+      <label style="margin-bottom:2px;">👤 Face Enhancement</label>
+      <p style="font-size:0.8rem; color:rgba(255,238,240,.55); margin:4px 0 0;">Restore facial details using GFPGAN AI</p>
+    </div>
+    <label class="switch">
+      <input type="checkbox" id="faceToggle">
+      <span class="slider"></span>
+    </label>
+  </div>
+  <style>
+    .switch { position:relative; display:inline-block; width:52px; height:28px; }
+    .switch input { opacity:0; width:0; height:0; }
+    .slider { position:absolute; cursor:pointer; inset:0; background:rgba(255,77,77,.2); border:1px solid rgba(255,77,77,.4); border-radius:28px; transition:.3s; }
+    .slider::before { content:""; position:absolute; height:22px; width:22px; left:2px; bottom:2px; background:#fff; border-radius:50%; transition:.3s; }
+    .switch input:checked + .slider { background:linear-gradient(135deg,var(--glow),var(--amber)); border-color:var(--glow); box-shadow:0 0 18px rgba(255,77,77,.5); }
+    .switch input:checked + .slider::before { transform:translateX(24px); }
+  </style>
+
   <button class="upscale-btn" id="upscaleBtn">Start Upscaling</button>
 
   <div class="progress-wrap">
@@ -148,6 +168,35 @@
   const actions = el('resultActions'), dl = el('downloadLink');
 
   uploadZone.onclick = ()=> fileInput.click();
+
+  // --- Drag-and-Drop ---
+  uploadZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadZone.style.borderColor = '#ff7a7a';
+    uploadZone.style.boxShadow = '0 0 40px rgba(255,77,77,.5), inset 0 0 30px rgba(255,77,77,.15)';
+    uploadZone.style.transform = 'translateY(-6px) scale(1.02)';
+  });
+  uploadZone.addEventListener('dragleave', (e) => {
+    e.preventDefault();
+    uploadZone.style.borderColor = '';
+    uploadZone.style.boxShadow = '';
+    uploadZone.style.transform = '';
+  });
+  uploadZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadZone.style.borderColor = '';
+    uploadZone.style.boxShadow = '';
+    uploadZone.style.transform = '';
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) {
+      selectedFile = file;
+      fileInfo.textContent = `📁 ${file.name} — ${(file.size/1024/1024).toFixed(2)} MB`;
+      fileInfo.style.display = 'block';
+    } else {
+      alert('Please drop an image file (JPG, PNG, etc.)');
+    }
+  });
+
   fileInput.onchange = (e)=>{
     selectedFile = e.target.files[0];
     if(!selectedFile) return;
@@ -186,6 +235,7 @@
     fd.append('type', 'image');
     fd.append('scale', el('scaleSelect').value);
     fd.append('preset', el('presetSelect').value);
+    fd.append('face_enhance', el('faceToggle').checked ? 'true' : 'false');
     actions.style.display='none';
     pbar.style.display='block';
     pfill.style.width='0%';
@@ -193,6 +243,7 @@
     try{
       const res = await fetch('/api/upload', { method:'POST', body:fd });
       const data = await res.json().catch(()=> ({}));
+      if (data.error) { ptext.textContent = '❌ ' + data.error; return; }
       currentJobId = data && data.job_id ? data.job_id : null;
       if(!currentJobId){ ptext.textContent='Error: job id missing'; return; }
       startPolling();

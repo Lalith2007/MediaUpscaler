@@ -7,8 +7,11 @@ from authlib.integrations.flask_client import OAuth
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 from zoneinfo import ZoneInfo
-import os, json, cv2, numpy as np, threading, uuid, requests, base64, mimetypes
-from datetime import datetime
+import os, json, cv2, numpy as np, threading, uuid, requests, base64, mimetypes, subprocess, time, shutil
+from datetime import datetime, timedelta
+from PIL import Image
+import os, json, cv2, numpy as np, threading, uuid, requests, base64, mimetypes, subprocess, time, shutil
+from datetime import datetime, timedelta
 from PIL import Image
 
 load_dotenv()
@@ -96,10 +99,10 @@ def emit_job_progress(job_id, pct, message='', download_url=None):
     socketio.emit('upscale_progress', payload)
 
 
-def upscale_image(input_path, output_path, scale=4, job_id=None, preset='balanced'):
+def upscale_image(input_path, output_path, scale=4, job_id=None, preset='balanced', face_enhance=False):
     try:
         print(f"\n=== UPSCALE START ===")
-        print(f"Job: {job_id} | Input: {input_path} | Output: {output_path} | Scale: {scale}x | Preset: {preset}")
+        print(f"Job: {job_id} | Input: {input_path} | Output: {output_path} | Scale: {scale}x | Preset: {preset} | Face: {face_enhance}")
 
         emit_job_progress(job_id, 3, 'Uploading to AI API...')
 
@@ -108,7 +111,7 @@ def upscale_image(input_path, output_path, scale=4, job_id=None, preset='balance
 
         print(f"📤 Sending {len(img_bytes)} bytes to AI API")
         img_b64 = base64.b64encode(img_bytes).decode()
-        payload = {'image': img_b64, 'scale': scale, 'job_id': job_id, 'preset': preset}
+        payload = {'image': img_b64, 'scale': scale, 'job_id': job_id, 'preset': preset, 'face_enhance': face_enhance}
 
         response = requests.post('http://localhost:5001/upscale', json=payload, timeout=600)
         print(f"📥 Response Status: {response.status_code}")
@@ -171,7 +174,7 @@ def upscale_video(input_path, output_path, scale=2, job_id=None, preset='balance
         return False, str(e)
 
 
-def process_job(job_id, job_type, input_path, output_path, scale, preset):
+def process_job(job_id, job_type, input_path, output_path, scale, preset, face_enhance=False):
     with app.app_context():
         job = ProcessingJob.query.filter_by(job_id=job_id).first()
         try:
@@ -180,7 +183,7 @@ def process_job(job_id, job_type, input_path, output_path, scale, preset):
             db.session.commit()
 
             if job_type == 'image':
-                success, msg = upscale_image(input_path, output_path, scale, job_id, preset)
+                success, msg = upscale_image(input_path, output_path, scale, job_id, preset, face_enhance)
             else:
                 success, msg = upscale_video(input_path, output_path, scale, job_id, preset)
 
@@ -348,6 +351,7 @@ def api_upload():
     job_type = request.form.get('type', 'image')
     scale = int(request.form.get('scale', 4))
     preset = request.form.get('preset', 'balanced')
+    face_enhance = request.form.get('face_enhance', 'false').lower() == 'true'
 
     if file.filename == '':
         return jsonify({'error': 'Empty filename'}), 400
@@ -371,12 +375,12 @@ def api_upload():
         output_file=output_path,
         status='pending',
         progress=0,
-        settings={'scale': scale, 'preset': preset}
+        settings={'scale': scale, 'preset': preset, 'face_enhance': face_enhance}
     )
     db.session.add(job)
     db.session.commit()
 
-    thread = threading.Thread(target=process_job, args=(job_id, job_type, input_path, output_path, scale, preset))
+    thread = threading.Thread(target=process_job, args=(job_id, job_type, input_path, output_path, scale, preset, face_enhance))
     thread.daemon = True
     thread.start()
 
@@ -516,7 +520,121 @@ def api_user_jobs():
     } for job in jobs])
 
 
+
+@app.route('/api/preview', methods=['POST'])
+@login_required
+def api_preview():
+    """Generate a 3-second preview clip from an uploaded video, upscaled."""
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file'}), 400
+
+    file = request.files['file']
+    scale = int(request.form.get('scale', 4))
+    preset = request.form.get('preset', 'balanced')
+
+    if file.filename == '':
+        return jsonify({'error': 'Empty filename'}), 400
+
+    filename = secure_filename(file.filename)
+    preview_id = str(uuid.uuid4())
+
+    # Save full uploaded video
+    input_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{preview_id}_{filename}")
+    file.save(input_path)
+
+    # Extract 3-second clip from the middle using FFmpeg
+    try:
+        # Get video duration
+        probe = subprocess.run(
+            ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
+             '-of', 'default=noprint_wrappers=1:nokey=1', input_path],
+            capture_output=True, text=True, timeout=30
+        )
+        duration = float(probe.stdout.strip() or '6')
+        start_time = max(0, (duration / 2) - 1.5)  # Start 1.5s before middle
+
+        clip_path = os.path.join(app.config['UPLOAD_FOLDER'], f"{preview_id}_clip.mp4")
+        subprocess.run(
+            ['ffmpeg', '-y', '-ss', str(start_time), '-i', input_path,
+             '-t', '3', '-c:v', 'libx264', '-preset', 'ultrafast', '-an', clip_path],
+            capture_output=True, timeout=60
+        )
+
+        # Now upscale the 3-second clip via the AI server
+        output_path = os.path.join(app.config['OUTPUT_FOLDER'], f"{preview_id}_preview.mp4")
+        with open(clip_path, 'rb') as video_file:
+            files = {'video': (os.path.basename(clip_path), video_file, 'video/mp4')}
+            data = {'scale': scale, 'preset': preset, 'job_id': preview_id}
+            response = requests.post('http://localhost:5001/upscale-video', files=files, data=data, timeout=300)
+
+        if response.status_code == 200:
+            json_data = response.json()
+            video_b64 = json_data.get('video')
+            if video_b64:
+                video_bytes = base64.b64decode(video_b64)
+                with open(output_path, 'wb') as f_out:
+                    f_out.write(video_bytes)
+
+                # Clean up temp files
+                os.remove(input_path)
+                os.remove(clip_path)
+
+                return jsonify({
+                    'success': True,
+                    'preview_url': f'/static/outputs/{preview_id}_preview.mp4'
+                })
+
+        # Clean up on failure
+        for p in [input_path, clip_path]:
+            if os.path.exists(p):
+                os.remove(p)
+        return jsonify({'error': 'Preview generation failed'}), 500
+
+    except Exception as e:
+        print(f"❌ Preview error: {e}")
+        for p in [input_path]:
+            if os.path.exists(p):
+               os.remove(p)
+        return jsonify({'error': str(e)}), 500
+
+# ==========================================
+# FILE CLEANUP / MAINTENANCE
+# ==========================================
+
+def cleanup_old_files():
+    """Delete uploaded and output files older than 24 hours."""
+    cutoff = time.time() - (24 * 60 * 60)  # 24 hours ago
+    cleaned = 0
+    for folder in [app.config['UPLOAD_FOLDER'], app.config['OUTPUT_FOLDER']]:
+        if not os.path.isdir(folder):
+            continue
+        for fname in os.listdir(folder):
+            fpath = os.path.join(folder, fname)
+            if os.path.isfile(fpath) and os.path.getmtime(fpath) < cutoff:
+                try:
+                    os.remove(fpath)
+                    cleaned += 1
+                except OSError:
+                    pass
+    if cleaned > 0:
+        print(f"🧹 Auto-cleanup: removed {cleaned} file(s) older than 24 hours.")
+
+
+def run_cleanup_scheduler():
+    """Background thread that runs cleanup every hour."""
+    while True:
+        time.sleep(3600)  # Run every hour
+        with app.app_context():
+            cleanup_old_files()
+
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
+        cleanup_old_files()  # Run once on startup
+
+    # Start the cleanup scheduler in a background thread
+    cleanup_thread = threading.Thread(target=run_cleanup_scheduler, daemon=True)
+    cleanup_thread.start()
+
     socketio.run(app, debug=True, host='localhost', port=8000, allow_unsafe_werkzeug=True)
